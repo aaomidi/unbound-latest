@@ -1046,7 +1046,9 @@ outside_network_create(struct comm_base* base, size_t bufsize,
 	void (*unwanted_action)(void*), void* ATTR_UNUSED(unwanted_param),
 	int ATTR_UNUSED(do_udp), void* ATTR_UNUSED(sslctx),
 	int ATTR_UNUSED(delayclose), int ATTR_UNUSED(tls_use_sni),
-	struct dt_env* ATTR_UNUSED(dtenv), int ATTR_UNUSED(udp_connect))
+	struct dt_env* ATTR_UNUSED(dtenv), int ATTR_UNUSED(udp_connect),
+	int ATTR_UNUSED(max_reuse_tcp_queries), int ATTR_UNUSED(tcp_reuse_timeout),
+	int ATTR_UNUSED(tcp_auth_query_timeout))
 {
 	struct replay_runtime* runtime = (struct replay_runtime*)base;
 	struct outside_network* outnet =  calloc(1, 
@@ -1306,8 +1308,9 @@ void outnet_serviced_query_stop(struct serviced_query* sq, void* cb_arg)
 	log_info("double delete of pending serviced query");
 }
 
-int resolve_interface_names(struct config_file* ATTR_UNUSED(cfg),
-	char*** ATTR_UNUSED(resif), int* ATTR_UNUSED(num_resif))
+int resolve_interface_names(char** ATTR_UNUSED(ifs), int ATTR_UNUSED(num_ifs),
+	struct config_strlist* ATTR_UNUSED(list), char*** ATTR_UNUSED(resif),
+	int* ATTR_UNUSED(num_resif))
 {
 	return 1;
 }
@@ -1629,7 +1632,8 @@ int create_udp_sock(int ATTR_UNUSED(family), int ATTR_UNUSED(socktype),
 struct comm_point* comm_point_create_udp(struct comm_base *ATTR_UNUSED(base),
 	int ATTR_UNUSED(fd), sldns_buffer* ATTR_UNUSED(buffer),
 	comm_point_callback_type* ATTR_UNUSED(callback),
-	void* ATTR_UNUSED(callback_arg))
+	void* ATTR_UNUSED(callback_arg),
+	struct unbound_socket* ATTR_UNUSED(socket))
 {
 	log_assert(0);
 	return NULL;

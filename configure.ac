@@ -11,14 +11,14 @@ sinclude(dnscrypt/dnscrypt.m4)
 # must be numbers. ac_defun because of later processing
 m4_define([VERSION_MAJOR],[1])
 m4_define([VERSION_MINOR],[13])
-m4_define([VERSION_MICRO],[1])
+m4_define([VERSION_MICRO],[2])
 AC_INIT([unbound],m4_defn([VERSION_MAJOR]).m4_defn([VERSION_MINOR]).m4_defn([VERSION_MICRO]),[unbound-bugs@nlnetlabs.nl or https://github.com/NLnetLabs/unbound/issues],[unbound])
 AC_SUBST(UNBOUND_VERSION_MAJOR, [VERSION_MAJOR])
 AC_SUBST(UNBOUND_VERSION_MINOR, [VERSION_MINOR])
 AC_SUBST(UNBOUND_VERSION_MICRO, [VERSION_MICRO])
 
 LIBUNBOUND_CURRENT=9
-LIBUNBOUND_REVISION=12
+LIBUNBOUND_REVISION=13
 LIBUNBOUND_AGE=1
 # 1.0.0 had 0:12:0
 # 1.0.1 had 0:13:0
@@ -98,6 +98,7 @@ LIBUNBOUND_AGE=1
 # 1.12.0 had 9:10:1
 # 1.13.0 had 9:11:1
 # 1.13.1 had 9:12:1
+# 1.13.2 had 9:13:1
 
 #   Current  -- the number of the binary API that we're implementing
 #   Revision -- which iteration of the implementation of the binary
@@ -146,9 +147,9 @@ case "$exec_prefix" in
 esac
 
 # are we on MinGW?
-if uname -s 2>&1 | grep MINGW32 >/dev/null; then on_mingw="yes"
+if uname -s 2>&1 | grep MINGW >/dev/null; then on_mingw="yes"
 else 
-	if echo $host $target | grep mingw32 >/dev/null; then on_mingw="yes"
+	if echo $host | grep mingw >/dev/null; then on_mingw="yes"
 	else on_mingw="no"; fi
 fi
 
@@ -406,7 +407,7 @@ AC_CHECK_HEADERS([net/if.h],,, [
 ])
 
 # Check for Apple header. This uncovers TARGET_OS_IPHONE, TARGET_OS_TV or TARGET_OS_WATCH
-AC_CHECK_HEADERS([TargetConditionals.h])
+AC_CHECK_HEADERS([TargetConditionals.h],,, [AC_INCLUDES_DEFAULT])
 
 # check for types.  
 # Using own tests for int64* because autoconf builtin only give 32bit.
@@ -858,7 +859,7 @@ AC_CHECK_FUNCS([OPENSSL_config EVP_sha1 EVP_sha256 EVP_sha512 FIPS_mode EVP_MD_C
 # these check_funcs need -lssl
 BAKLIBS="$LIBS"
 LIBS="-lssl $LIBS"
-AC_CHECK_FUNCS([OPENSSL_init_ssl SSL_CTX_set_security_level SSL_set1_host SSL_get0_peername X509_VERIFY_PARAM_set1_host SSL_CTX_set_ciphersuites SSL_CTX_set_tlsext_ticket_key_evp_cb SSL_CTX_set_alpn_select_cb])
+AC_CHECK_FUNCS([OPENSSL_init_ssl SSL_CTX_set_security_level SSL_set1_host SSL_get0_peername X509_VERIFY_PARAM_set1_host SSL_CTX_set_ciphersuites SSL_CTX_set_tlsext_ticket_key_evp_cb SSL_CTX_set_alpn_select_cb SSL_get0_alpn_selected SSL_CTX_set_alpn_protos])
 LIBS="$BAKLIBS"
 
 AC_CHECK_DECLS([SSL_COMP_get_compression_methods,sk_SSL_COMP_pop_free,SSL_CTX_set_ecdh_auto], [], [], [
@@ -1154,6 +1155,11 @@ AC_INCLUDES_DEFAULT
       ;;
 esac
 
+AC_ARG_WITH(deprecate-rsa-1024, AS_HELP_STRING([--with-deprecate-rsa-1024],[Deprecate RSA 1024 bit length, makes that an unsupported key, for use when OpenSSL FIPS refuses 1024 bit verification]))
+if test "$with_deprecate_rsa_1024" = "yes"; then
+	AC_DEFINE([DEPRECATE_RSA_1024], [1], [Deprecate RSA 1024 bit length, makes that an unsupported key])
+fi
+
 AC_ARG_ENABLE(ed25519, AS_HELP_STRING([--disable-ed25519],[Disable ED25519 support]))
 use_ed25519="no"
 case "$enable_ed25519" in
@@ -1210,23 +1216,23 @@ esac
 AC_ARG_ENABLE(tfo-client, AS_HELP_STRING([--enable-tfo-client],[Enable TCP Fast Open for client mode]))
 case "$enable_tfo_client" in
 	yes)
-		case `uname` in
-			Linux) AC_CHECK_DECL([MSG_FASTOPEN], [AC_MSG_WARN([Check the platform specific TFO kernel parameters are correctly configured to support client mode TFO])],
-			                     [AC_MSG_ERROR([TCP Fast Open is not available for client mode: please rerun without --enable-tfo-client])], 
-			                     [AC_INCLUDES_DEFAULT 
+		case "$host_os" in
+			linux*) AC_CHECK_DECL([MSG_FASTOPEN], [AC_MSG_WARN([Check the platform specific TFO kernel parameters are correctly configured to support client mode TFO])],
+				[AC_MSG_ERROR([TCP Fast Open is not available for client mode: please rerun without --enable-tfo-client])],
+				[AC_INCLUDES_DEFAULT
 #include <netinet/tcp.h>
 ])
-					AC_DEFINE_UNQUOTED([USE_MSG_FASTOPEN], [1], [Define this to enable client TCP Fast Open.])
-			  ;;
-			Darwin) AC_CHECK_DECL([CONNECT_RESUME_ON_READ_WRITE], [AC_MSG_WARN([Check the platform specific TFO kernel parameters are correctly configured to support client mode TFO])], 
-			                      [AC_MSG_ERROR([TCP Fast Open is not available for client mode: please rerun without --enable-tfo-client])], 
-			                      [AC_INCLUDES_DEFAULT
+				AC_DEFINE_UNQUOTED([USE_MSG_FASTOPEN], [1], [Define this to enable client TCP Fast Open.])
+				;;
+			darwin*) AC_CHECK_DECL([CONNECT_RESUME_ON_READ_WRITE], [AC_MSG_WARN([Check the platform specific TFO kernel parameters are correctly configured to support client mode TFO])],
+				[AC_MSG_ERROR([TCP Fast Open is not available for client mode: please rerun without --enable-tfo-client])],
+				[AC_INCLUDES_DEFAULT
 #include <sys/socket.h>
 ])
-					AC_DEFINE_UNQUOTED([USE_OSX_MSG_FASTOPEN], [1], [Define this to enable client TCP Fast Open.])
-			  ;;
+				AC_DEFINE_UNQUOTED([USE_OSX_MSG_FASTOPEN], [1], [Define this to enable client TCP Fast Open.])
+				;;
 		esac
-	;;
+		;;
 	no|*)
 		;;
 esac
@@ -1508,6 +1514,7 @@ AC_CHECK_FUNCS([daemon])
 if test $ac_cv_func_daemon = yes; then
 	ACX_FUNC_DEPRECATED([daemon], [(void)daemon(0, 0);], [
 #include <stdlib.h>
+#include <unistd.h>
 ])
 fi
 
@@ -1586,7 +1593,7 @@ AC_CHECK_FUNCS([setresuid],,[AC_CHECK_FUNCS([setreuid])])
 AC_CHECK_FUNCS([setresgid],,[AC_CHECK_FUNCS([setregid])])
 
 # check if setreuid en setregid fail, on MacOSX10.4(darwin8).
-if echo $target_os | grep darwin8 > /dev/null; then
+if echo $host_os | grep darwin8 > /dev/null; then
 	AC_DEFINE(DARWIN_BROKEN_SETREUID, 1, [Define this if on macOSX10.4-darwin8 and setreuid and setregid do not work])
 fi
 AC_CHECK_DECLS([inet_pton,inet_ntop], [], [], [
@@ -1711,7 +1718,7 @@ case "$enable_allsymbols" in
 	yes)
 	COMMON_OBJ_ALL_SYMBOLS=""
 	UBSYMS=""
-	EXTRALINK="-L. -L.libs -lunbound"
+	EXTRALINK="libunbound.la"
 	AC_DEFINE(EXPORT_ALL_SYMBOLS, 1, [Define this if you enabled-allsymbols from libunbound to link binaries to it for smaller install size, but the libunbound export table is polluted by internal symbols])
 	;;
 	no|*)
@@ -1778,6 +1785,8 @@ if test "$found_libhiredis" = "yes"; then enable_cachedb="yes"; fi
 case "$enable_cachedb" in
     yes)
     	AC_DEFINE([USE_CACHEDB], [1], [Define to 1 to use cachedb support])
+	AC_SUBST([CACHEDB_SRC], ["cachedb/cachedb.c cachedb/redis.c"])
+	AC_SUBST([CACHEDB_OBJ], ["cachedb.lo redis.lo"])
     	;;
     no|*)
     	# nothing
